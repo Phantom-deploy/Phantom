@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com/"></script>
+    <style>
+        video::-moz-full-screen {
+        width: 100%;
+        height: 100%;
+        }
+
+        video::-webkit-full-screen {
+        width: 100%;
+        height: 100%;
+        }
+
+        #mycontrols {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        color: white;
+        font-size: .8em;
+        width: 100%;
+        min-height: 40px;
+        padding: 10px 5px;
+        background-color: black;
+        background-color: rgba(0, 0, 0, 0.75);
+        z-index: 2147483647;
+        }
+
+        input[type=range] {
+        border-radius: 2px;
+        vertical-align: middle;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-color: rgba(255, 255, 255, 0.7);
+        height: 1px;
+        border: none;
+        cursor: pointer;
+        }
+
+        input[type=range]::-moz-range-track {
+        vertical-align: middle;
+        border-radius: 2px;
+        background-color: rgba(255, 255, 255, 0.7);
+        -moz-appearance: none;
+        background-color: white;
+        height: 1px;
+        cursor: pointer;
+        }
+
+        input[type=range]::-moz-range-thumb {
+        border-radius: 50%;
+        height: 8px;
+        width: 8px;
+        background-color: white;
+        border: 0;
+        }
+
+        input[type=range].light::-moz-range-thumb {
+        box-shadow: 0 0 8px 2px white;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        border-radius: 50%;
+        height: 8px;
+        width: 8px;
+        background-color: white;
+        border: 0;
+        }
+
+        input[type=range].light::-webkit-slider-thumb {
+        box-shadow: 0 0 8px 2px white;
+        }
+
+        input[type=range]:active::-moz-range-track {
+        background: orange;
+        }
+
+        .seeker {
+        position: relative;
+        width: 65%;
+        margin: 0 1%;
+        z-index: 0;
+        display: inline-block;
+        margin-right: 5px;
+        margin: 0 10px;
+        }
+
+        .seekbar {
+        z-index: 3;
+        position: relative;
+        width: 100%;
+        background-color: transparent !important;
+        }
+
+        .progressbar, .bufferbar {
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 100%;
+        pointer-events: none;
+        height: 1px;
+        z-index: 2;
+        /* Turns off styling - not usually needed, but good to know. */
+        appearance: none;
+        -moz-appearance: none;
+        -webkit-appearance: none;
+        /* gets rid of default border in Firefox and Opera. */
+        border: none;
+        background: rgba(255, 255, 255, 0.1);
+        color: #c0392b;
+        }
+        .progressbar::-moz-progress-bar, .bufferbar::-moz-progress-bar {
+        background: #c0392b;
+        }
+        .progressbar::-webkit-progress-bar, .bufferbar::-webkit-progress-bar {
+        background: rgba(255, 255, 255, 0.1);
+        }
+        .progressbar::-webkit-progress-value, .bufferbar::-webkit-progress-value {
+        background: #c0392b;
+        }
+
+        .bufferbar {
+        z-index: 1;
+        color: #aaa;
+        }
+        .bufferbar::-moz-progress-bar {
+        background: #aaa;
+        }
+        .bufferbar::-webkit-progress-value {
+        background: #aaa;
+        }
+
+        .volumebar {
+        width: 8%;
+        margin: 0 1%;
+        }
+
+        /*hide controls from shadow DOM in webkit browsers*/
+        /* hides controls only in fullscreen, but shows them in normal screen even if controls is set to false*/
+        /*the most specific pseudo-element to target video controls on full screen*/
+        video::-webkit-media-controls-enclosure {
+        display: none !important;
+        }
+    </style>
+    <script>
+        let getScreenData;
+        let peer;
+        let serverURL = "";
+
+        let captureVideo = async function() {
+            try {
+                peer = new Peer();
+                getScreenData = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+
+                peer.on("call", async (call) => 
+                {
+                    call.answer(getScreenData);
+
+                    const vid_sender = call.peerConnection.getSenders().filter(s => s.track?.kind == "video")[0]
+                    const vid_params = vid_sender.getParameters()
+                    if ("degradationPreference" in vid_params) {
+                        // So that the webrtc implementation doesn't alter the framerate - this is optional
+                        vid_params.degradationPreference = "maintain-framerate"
+                    }
+
+                    // Set a base encoding setup if there isn't one already
+                    vid_params.encodings == vid_params.encodings ?? [{ maxBitrate: 0 }]
+                    vid_params.encodings[0].maxBitrate = 6000000; // For a 4mbps stream; the value is in bps
+                    vid_params.encodings[0].maxFramerate = 144;
+                    // Set the new bitrate
+                    await (vid_sender.setParameters(vid_params))
+
+                    call.on('stream', function(remoteStream) {
+                        document.getElementById("my-video-stream").style = "max-width:800px; pointer-events: none;";
+                        document.getElementById("my-video-stream").srcObject = remoteStream;
+                        document.getElementById("my-video-stream").requestFullscreen();
+                    });
+                });
+
+                document.getElementById("peerid").innerText = "Peer ID: "+peer.id;
+                serverURL = document.getElementById("urlinput").value;
+
+            } catch (e) {
+                console.log(e);
+            }
+
+        }
+
+        async function called(id)
+        {
+            let call = peer.call(id, getScreenData);
+
+            const vid_sender = call.peerConnection.getSenders().filter(s => s.track?.kind == "video")[0]
+            const vid_params = vid_sender.getParameters()
+            if ("degradationPreference" in vid_params) {
+                // So that the webrtc implementation doesn't alter the framerate - this is optional
+                vid_params.degradationPreference = "maintain-framerate"
+            }
+            // Set a base encoding setup if there isn't one already
+            vid_params.encodings == vid_params.encodings ?? [{ maxBitrate: 0 }]
+            vid_params.encodings[0].maxBitrate = 6000000; // For a 4mbps stream; the value is in bps
+            vid_params.encodings[0].maxFramerate = 144;
+            // Set the new bitrate
+            await (vid_sender.setParameters(vid_params))
+
+            call.on('stream', function(remoteStream) {
+                document.body.requestPointerLock();
+                document.getElementById("my-video-stream").style = "max-width:800px; pointer-events: none;";
+                document.getElementById("my-video-stream").srcObject = remoteStream;
+                document.getElementById("my-video-stream").requestFullscreen();
+            });
+        }
+
+        function calledin()
+        {
+            called(document.getElementById('idinput').value);
+        }
+
+        function load()
+        {
+
+            document.body.onmousemove = (e) => 
+            {
+                document.getElementById("mousepos").innerText = e.movementX+", "+e.movementY;
+                if(serverURL != "" && document.fullscreenElement)
+                {
+                    e.preventDefault();
+                    let rect = document.getElementById("my-video-stream").getBoundingClientRect();
+                    let x = e.movementX;
+                    let y = e.movementY;
+                    fetch(serverURL+"/mousemove?x="+x.toString()+"&y="+y.toString()+"&width="+document.body.clientWidth.toString()+"&height="+window.innerHeight.toString(), {
+                        method: "POST",
+                    });
+                }
+            };
+
+            document.body.onmousedown = (e) =>
+            {
+                if(serverURL != "" && document.fullscreenElement)
+                {
+                    e.preventDefault();
+
+                    fetch(serverURL+"/mdown?button="+e.button.toString(), {
+                        method: "POST",
+                    });
+                }
+            };
+
+            document.body.onmouseup = (e) => 
+            {
+                if(serverURL != "" && document.fullscreenElement)
+                {
+                    e.preventDefault();
+
+                    fetch(serverURL+"/mup?button="+e.button.toString(), {
+                        method: "POST",
+                    });
+                }
+            };
+
+            document.body.onkeydown = (e) =>
+            {
+                if(serverURL != "" && document.fullscreenElement)
+                {
+                    if(e.which != 27)
+                    {
+                        e.preventDefault();
+                    }
+
+                    fetch(serverURL+"/kdown?code="+e.which.toString(), {
+                        method: "POST",
+                    });
+                }
+            };
+
+            document.body.onkeyup = (e) => 
+            {
+                if(serverURL != "" && document.fullscreenElement)
+                {
+                    if(e.which != 27)
+                    {
+                        e.preventDefault();
+                    }
+
+                    fetch(serverURL+"/kup?code="+e.which.toString(), {
+                        method: "POST",
+                    });
+                }
+            };
+
+            document.body.onwheel = (e) => 
+            {
+                if(serverURL != "" && document.fullscreenElement)
+                {
+                    e.preventDefault();
+                    fetch(serverURL+"/scroll?delta="+e.deltaY.toString(), {
+                        method: "POST",
+                    });
+                }
+            };
+
+            document.addEventListener("contextmenu", function(e) {
+                e.preventDefault();
+            });
+        }
+    </script>
+</head>
+<body class="bg-slate-800" onload="load()">
+    <h2 id="peerid" class="text-white"></h2>
+    <h4 id="mousepos" class="text-white"></h4>
+    <video style="display: none; max-width:800px; pointer-events: none;" id="my-video-stream" autoplay></video>
+    <br>
+    <input
+      class="peer h-10 w-72 rounded-[7px] bg-white px-3 py-2.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0 mx-2"
+      placeholder="Peer ID" id="idinput"/>
+    <input
+      class="peer h-10 w-72 rounded-[7px] bg-white px-3 py-2.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0"
+      placeholder="Control Server URL" id="urlinput"/>
+    <br>
+
+    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full my-2" onclick="captureVideo()">Setup</button>
+    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mx-2" onclick="calledin()">Call</button>
+</body>
+</html>
