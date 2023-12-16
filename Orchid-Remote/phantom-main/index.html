@@ -3,10 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Video Conference</title>
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
-    <script src="https://cdn.tailwindcss.com/"></script>
     <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .container {
+            position: relative;
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.8) 0%, rgba(255, 255, 0, 0.8) 100%);
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            border-radius: 20px;
+            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.5);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity .3s ease-in-out;
+        }
+
+        h2, h4 {
+            margin-bottom: 10px;
+        }
+
+        video {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        input {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            color: #fff;
+            background-color: #3490dc;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        @keyframes glowing {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        .container:hover::before {
+            animation: glowing 1.5s linear infinite;
+        }
+
         video::-moz-full-screen {
         width: 100%;
         height: 100%;
@@ -315,20 +391,17 @@
         }
     </script>
 </head>
-<body class="bg-slate-800" onload="load()">
-    <h2 id="peerid" class="text-white"></h2>
-    <h4 id="mousepos" class="text-white"></h4>
-    <video style="display: none; max-width:800px; pointer-events: none;" id="my-video-stream" autoplay></video>
-    <br>
-    <input
-      class="peer h-10 w-72 rounded-[7px] bg-white px-3 py-2.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0 mx-2"
-      placeholder="Peer ID" id="idinput"/>
-    <input
-      class="peer h-10 w-72 rounded-[7px] bg-white px-3 py-2.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0"
-      placeholder="Control Server URL" id="urlinput"/>
-    <br>
-
-    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full my-2" onclick="captureVideo()">Setup</button>
-    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mx-2" onclick="calledin()">Call</button>
+<body>
+    <div class="container">
+        <h2 id="peerid">Peer ID: </h2>
+        <h4 id="mousepos"></h4>
+        <video id="my-video-stream" autoplay style="display: none;"></video>
+        <br>
+        <input type="text" placeholder="Peer ID" id="idinput">
+        <input type="text" placeholder="Control Server URL" id="urlinput">
+        <br>
+        <button onclick="captureVideo()">Setup</button>
+        <button onclick="calledin()">Call</button>
+    </div>
 </body>
 </html>
